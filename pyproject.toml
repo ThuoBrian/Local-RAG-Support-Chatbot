@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "helpdesk-rag"
+version = "0.1.0"
+description = "Local RAG chatbot for IT support one-pagers using Ollama + ChromaDB"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "pymupdf>=1.27.2.3",
+    "python-docx>=1.2.0",
+    "markdown-it-py>=3.0",
+    "openai>=2.33.0",
+    "chromadb>=1.5.8",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "sse-starlette>=2.0.0",
+    "jinja2>=3.1.0",
+    "pydantic>=2.13.3",
+    "pyyaml>=6.0",
+    "rank-bm25>=0.2.2",
+    "tqdm>=4.66.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.5",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+helpdesk-ingest = "helpdesk_rag.ingest:main"
+
+[tool.setuptools.packages.find]
+include = ["helpdesk_rag*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+markers = [
+    "integration: requires running Ollama/ChromaDB (deselect with '-m \"not integration\"')",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.mypy]
+python_version = "3.11"
+strict = true

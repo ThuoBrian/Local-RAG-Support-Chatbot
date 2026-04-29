@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Helpdesk RAG — Knowledge Assistant</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+
+<body>
+    <div id="app">
+        <header id="header">
+            <div class="header-left">
+                <span class="header-icon">🛡️</span>
+                <div class="header-text">
+                    <h1>Knowledge Assistant</h1>
+                    <span class="header-subtitle">IPA Kenya — Cybersecurity & IT Support</span>
+                </div>
+            </div>
+            <button id="new-chat-btn" title="Start new chat">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round">
+                    <line x1="8" y1="3" x2="8" y2="13" />
+                    <line x1="3" y1="8" x2="13" y2="8" />
+                </svg>
+                New Chat
+            </button>
+        </header>
+
+        <main id="messages">
+            <div id="empty-state" class="empty-state">
+                <div class="empty-icon">💬</div>
+                <h2>Ask me anything about IT procedures</h2>
+                <p>Get answers from your organization's cybersecurity and IT support documentation.</p>
+                <div class="suggestion-chips">
+                    <button class="suggestion-chip" data-query="How do I enable BitLocker?">Enable BitLocker</button>
+                    <button class="suggestion-chip" data-query="What is Cryptomator and how do I use it?">Use
+                        Cryptomator</button>
+                    <button class="suggestion-chip" data-query="How do I secure my field tablet?">Secure tablet</button>
+                    <button class="suggestion-chip" data-query="What are the compliance checks?">Compliance
+                        checks</button>
+                </div>
+            </div>
+        </main>
+
+        <footer id="input-area">
+            <form id="chat-form">
+                <div class="input-wrapper">
+                    <textarea id="message-input" placeholder="Ask about IT procedures, troubleshooting, compliance..."
+                        rows="1" autocomplete="off"></textarea>
+                    <button type="submit" id="send-btn" title="Send message" disabled>
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                            <path
+                                d="M10.894 2.553a1 1 0 0 0-1.788 0l-7 14a1 1 0 0 0 1.169 1.406l5.725-1.432L10 18.56V18l1 .25.225.927 5.725 1.432a1 1 0 0 0 1.169-1.406l-7-14z" />
+                        </svg>
+                    </button>
+                </div>
+                <span class="input-hint">Press Enter to send, Shift+Enter for new line</span>
+            </form>
+        </footer>
+    </div>
+    <script src="/static/app.js"></script>
+</body>
+
+</html>
