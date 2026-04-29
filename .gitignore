@@ -203,6 +203,9 @@ cython_debug/
 # Temporary file for partial code execution
 tempCodeRunnerFile.py
 
+# ChromaDB vector store (regenerate via: python -m helpdesk_rag.ingest)
+data/chroma/
+
 # Ruff stuff:
 .ruff_cache/
 
