@@ -132,7 +132,7 @@ async def chat(request: ChatRequest) -> EventSourceResponse:
             full_answer.append(fallback)
             history.append({"role": "assistant", "content": fallback})
             yield {"event": "sources", "data": json.dumps([])}
-            yield {"event": "token", "data": fallback}
+            yield {"event": "token", "data": json.dumps(fallback)}
             yield {"event": "done", "data": ""}
             return
 
@@ -144,7 +144,7 @@ async def chat(request: ChatRequest) -> EventSourceResponse:
                 if token is None:
                     break
                 full_answer.append(token)
-                yield {"event": "token", "data": token}
+                yield {"event": "token", "data": json.dumps(token)}
         except Exception:
             logger.exception("LLM stream interrupted")
             if full_answer:
