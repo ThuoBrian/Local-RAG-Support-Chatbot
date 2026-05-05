@@ -14,6 +14,118 @@ Local RAG chatbot for IT support documentation. Drops documents into a folder, i
 - **Conversation history** — per-session context carried across turns (configurable depth)
 - **Configurable** — YAML config file with environment variable overrides
 
+## Architecture
+
+The system follows a modular RAG (Retrieval-Augmented Generation) architecture where each component has a single responsibility.
+
+### System Overview
+
+```mermaid
+flowchart TB
+    subgraph Client
+        UI[Browser UI]
+    end
+
+    subgraph FastAPI["FastAPI Server"]
+        APP[app.py<br/>SSE + Sessions]
+        ENGINE[RAGEngine]
+        RETRIEVER[Hybrid Retriever]
+        LLM[LLMClient]
+    end
+
+    subgraph Storage["Storage Layer"]
+        VS[VectorStore<br/>ChromaDB]
+        BM25[BM25 Index<br/>In-memory]
+    end
+
+    subgraph Ollama["Ollama (Local)"]
+        EMBED[Embedding Model]
+        CHAT[Chat Model]
+    end
+
+    UI -->|POST /api/chat| APP
+    APP -->|prepare_stream| ENGINE
+    ENGINE -->|retrieve| RETRIEVER
+    RETRIEVER -->|query| VS
+    RETRIEVER -->|rerank| BM25
+    RETRIEVER -->|embed| EMBED
+    ENGINE -->|generate_stream| LLM
+    LLM -->|chat| CHAT
+    APP -->|SSE events| UI
+```
+
+**Request Flow:**
+1. Browser sends chat message to FastAPI endpoint
+2. `RAGEngine` orchestrates retrieval and generation
+3. `Hybrid Retriever` finds relevant document chunks
+4. `LLMClient` streams response tokens from Ollama
+5. Server-sent events deliver tokens to browser in real-time
+
+### Hybrid Retrieval Pipeline
+
+The system uses a two-stage retrieval with weighted re-ranking:
+
+```
+Query ──► Embedding ──► Vector Search ──► 2× candidates
+                                                   │
+                      ┌────────────────────────────┘
+                      ▼
+              Filter by min_score
+                      │
+          ┌───────────┴───────────┐
+          ▼                       ▼
+   Vector Score (60%)      BM25 Score (40%)
+          └───────────┬───────────┘
+                      ▼
+              Weighted Fusion
+                      │
+                      ▼
+                Top-K Results
+```
+
+| Stage | Description |
+|-------|-------------|
+| **Candidate Generation** | Vector similarity retrieves `top_k × 2` chunks |
+| **Filtering** | Chunks below `min_score` threshold discarded |
+| **Re-ranking** | Combined score = 0.6×vector + 0.4×BM25 |
+
+The BM25 index is built lazily on first hybrid query and cached with thread-safe locking.
+
+### Server-Sent Events Streaming
+
+Real-time responses delivered via SSE with four event types:
+
+| Event | When | Data |
+|-------|------|------|
+| `sources` | After retrieval | JSON array of source documents |
+| `token` | Per-LLM-token | JSON string (the token) |
+| `error` | On failure | JSON string (error message) |
+| `done` | Stream complete | Empty |
+
+**Two-Phase Commit:** User messages are only saved to history after successful retrieval, preventing corrupted conversation state.
+
+### Session Management
+
+Stateful conversations with automatic cleanup:
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| `SESSION_MAX_AGE` | 3600s | Session timeout (1 hour) |
+| `MAX_SESSIONS` | 1000 | Memory cap with LRU eviction |
+
+Background cleanup runs every 10 minutes to remove expired sessions.
+
+### Design Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| **OpenAI-compatible API** | Model portability — swap Ollama for OpenAI, vLLM, etc. |
+| **Lazy BM25 indexing** | Avoid startup delay; build only when needed |
+| **Two-phase message commit** | Prevent corrupted history on retrieval failure |
+| **Sentence-boundary truncation** | Preserve readability when context exceeds limit |
+| **Incremental ingestion** | Skip existing chunks; support document updates |
+| **Thread-safe BM25 cache** | Prevent race conditions during concurrent queries |
+
 ## Quick Start
 
 ### Prerequisites
@@ -131,18 +243,6 @@ python -m helpdesk_rag.ingest
 Supported formats: **PDF**, **DOCX**, **Markdown** (`.md`), **plain text** (`.txt`).
 
 Ingestion skips chunks that already exist in the vector store, so you can run it repeatedly without duplicating data.
-
-## Retrieval Methods
-
-The `retrieval.method` setting controls how relevant chunks are found:
-
-| Method | How it works |
-|---|---|
-| `vector` | Pure semantic similarity search via ChromaDB embeddings |
-| `bm25` | Pure keyword search using the BM25 algorithm |
-| `hybrid` *(default)* | Retrieves `top_k × 2` vector candidates, filters by `min_score`, then re-ranks using a weighted blend of vector similarity (60%) and BM25 relevance (40%) |
-
-Switch methods in `config.yaml` or set `RETRIEVAL_METHOD=bm25` as an environment variable.
 
 ## Docker
 
