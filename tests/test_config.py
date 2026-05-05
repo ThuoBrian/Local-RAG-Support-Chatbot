@@ -103,3 +103,9 @@ retrieval:
         assert cfg.ollama.llm_model == "env-model"
         assert cfg.retrieval.top_k == 2
         assert cfg.retrieval.min_score == 0.5
+
+    def test_env_var_invalid_coercion(self, monkeypatch: pytest.MonkeyPatch):
+        from helpdesk_rag.exceptions import ConfigError
+        monkeypatch.setenv("RETRIEVAL_TOP_K", "not_a_number")
+        with pytest.raises(ConfigError, match="RETRIEVAL_TOP_K"):
+            load_config()

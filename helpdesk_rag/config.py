@@ -3,9 +3,10 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import yaml
+from helpdesk_rag.exceptions import ConfigError
 from pydantic import BaseModel, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
@@ -105,7 +106,7 @@ class RAGConfig(BaseModel):
 
 def load_config(config_path: str = "config.yaml") -> RAGConfig:
     path = Path(config_path)
-    data: dict = {}
+    data: dict[str, Any] = {}
     if path.exists():
         with open(path) as f:
             data = yaml.safe_load(f) or {}
@@ -140,10 +141,20 @@ def load_config(config_path: str = "config.yaml") -> RAGConfig:
     for env_var, (section, key) in env_overrides.items():
         value = os.environ.get(env_var)
         if value is not None:
-            coerced = type_coercions.get(env_var, str)(value)
-            data.setdefault(section, {})[key] = coerced
+            try:
+                coerced = type_coercions.get(env_var, str)(value)
+            except (ValueError, TypeError) as exc:
+                raise ConfigError(f"Invalid value for {env_var}: {value!r}") from exc
+            section_dict: dict[str, Any] = data.setdefault(section, {})
+            section_dict[key] = coerced
             logger.debug("Override %s=%s from env var", key, coerced)
 
     config = RAGConfig(**data)
-    logger.info("Config loaded: llm=%s, retrieval=%s/%s, top_k=%s", config.ollama.llm_model, config.retrieval.method, config.retrieval.min_score, config.retrieval.top_k)
+    logger.info(
+        "Config loaded: llm=%s, retrieval=%s/%s, top_k=%s",
+        config.ollama.llm_model,
+        config.retrieval.method,
+        config.retrieval.min_score,
+        config.retrieval.top_k,
+    )
     return config

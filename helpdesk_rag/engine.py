@@ -7,7 +7,7 @@ from typing import TypedDict
 from helpdesk_rag.config import RAGConfig
 from helpdesk_rag.embeddings import EmbeddingClient
 from helpdesk_rag.llm_client import LLMClient
-from helpdesk_rag.retriever import RetrievedChunk, Retriever
+from helpdesk_rag.retriever import Retriever
 from helpdesk_rag.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,9 @@ USER_PROMPT_TEMPLATE = """\
 
 ## Current Question
 
+<user_message>
 {question}
+</user_message>
 
 Please answer the question using the relevant documents above. Cite your sources."""
 
@@ -62,7 +64,7 @@ class RAGEngine:
         self.retriever = Retriever(vector_store, embedding_client, config.retrieval)
         self.llm = LLMClient(config.ollama)
 
-    def _prepare(self, question: str, history: list[dict] | None = None) -> tuple[list[SourceInfo], str]:
+    def _prepare(self, question: str, history: list[dict[str, str]] | None = None) -> tuple[list[SourceInfo], str]:
         """Shared retrieval + context formatting + prompt building."""
         chunks = self.retriever.retrieve(question)
         if not chunks:
@@ -83,26 +85,32 @@ class RAGEngine:
 
         history_text = _format_history(history, self.chat_config.max_history_turns)
         user_prompt = USER_PROMPT_TEMPLATE.format(
-            context=context, history=history_text, question=question,
+            context=context,
+            history=history_text,
+            question=question,
         )
         logger.debug("Prepared prompt: %d chars context, %d sources", len(context), len(sources))
         return sources, user_prompt
 
-    def answer(self, question: str, history: list[dict] | None = None) -> dict:
+    def answer(self, question: str, history: list[dict[str, str]] | None = None) -> dict[str, str | list[SourceInfo]]:
         sources, user_prompt = self._prepare(question, history)
         if not sources:
             return {"answer": "I don't have information about this in the available documentation.", "sources": []}
         answer = self.llm.generate(SYSTEM_PROMPT, user_prompt)
         return {"answer": answer, "sources": sources}
 
-    def prepare_stream(self, question: str, history: list[dict] | None = None) -> tuple[Generator[str, None, None], list[SourceInfo]]:
+    def prepare_stream(
+        self, question: str, history: list[dict[str, str]] | None = None
+    ) -> tuple[Generator[str, None, None], list[SourceInfo]]:
         sources, user_prompt = self._prepare(question, history)
         if not sources:
             return (t for t in ["I don't have information about this in the available documentation."]), []
         stream = self.llm.generate_stream(SYSTEM_PROMPT, user_prompt)
         return stream, sources
 
-    def retrieve_and_format(self, question: str, history: list[dict] | None = None) -> tuple[list[SourceInfo], str]:
+    def retrieve_and_format(
+        self, question: str, history: list[dict[str, str]] | None = None
+    ) -> tuple[list[SourceInfo], str]:
         return self._prepare(question, history)
 
 
@@ -118,10 +126,10 @@ def _truncate_context(context: str, max_chars: int) -> str:
     return truncated
 
 
-def _format_history(history: list[dict] | None, max_turns: int) -> str:
+def _format_history(history: list[dict[str, str]] | None, max_turns: int) -> str:
     if not history:
         return "(No previous conversation)"
-    recent = history[-(max_turns * 2):]
+    recent = history[-(max_turns * 2) :]
     lines: list[str] = []
     for msg in recent:
         role = msg.get("role", "user")

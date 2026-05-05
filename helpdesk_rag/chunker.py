@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TypedDict
+
+from typing import cast
 
 from helpdesk_rag.config import ChunkingConfig
 from helpdesk_rag.loader import Document, DocumentMetadata
@@ -22,7 +23,7 @@ class ChunkMetadata(DocumentMetadata, total=False):
 class Chunk:
     id: str
     content: str
-    metadata: ChunkMetadata = field(default_factory=dict)
+    metadata: ChunkMetadata = field(default_factory=cast(type, dict))
 
 
 class RecursiveChunker:
@@ -71,8 +72,9 @@ def _split_text(text: str, chunk_size: int, chunk_overlap: int) -> list[str]:
         chunks.append(current.strip())
 
     if len(chunks) > 1 and len(chunks[-1]) < chunk_size * TRAILING_CHUNK_MERGE_THRESHOLD:
-        chunks[-2] += chunks[-1]
-        chunks.pop()
+        if len(chunks[-2]) + len(chunks[-1]) <= chunk_size:
+            chunks[-2] += chunks[-1]
+            chunks.pop()
 
     return chunks
 

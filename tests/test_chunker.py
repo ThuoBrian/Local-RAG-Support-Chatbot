@@ -1,5 +1,7 @@
 """Tests for helpdesk_rag.chunker."""
 
+import pytest
+
 from helpdesk_rag.chunker import RecursiveChunker, _split_text
 from helpdesk_rag.config import ChunkingConfig
 from helpdesk_rag.loader import Document
@@ -41,7 +43,7 @@ class TestRecursiveChunker:
 
 class TestSplitText:
     def test_overlap_less_than_size(self):
-        with __import__("pytest").raises(ValueError):
+        with pytest.raises(ValueError, match="chunk_overlap"):
             ChunkingConfig(chunk_size=50, chunk_overlap=50)
 
     def test_split_respects_separators(self):

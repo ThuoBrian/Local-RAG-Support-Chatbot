@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 from collections.abc import Generator
 
+from openai.types.chat import ChatCompletionSystemMessageParam, ChatCompletionUserMessageParam
+
 from helpdesk_rag.config import OllamaConfig
 from helpdesk_rag.embeddings import create_openai_client
 from helpdesk_rag.exceptions import LLMError
@@ -18,9 +20,9 @@ class LLMClient:
         self.client = create_openai_client(config)
 
     def generate(self, system_prompt: str, user_message: str) -> str:
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message},
+        messages: list[ChatCompletionSystemMessageParam | ChatCompletionUserMessageParam] = [
+            ChatCompletionSystemMessageParam(role="system", content=system_prompt),
+            ChatCompletionUserMessageParam(role="user", content=user_message),
         ]
         try:
             response = self.client.chat.completions.create(
@@ -36,9 +38,9 @@ class LLMClient:
         return content if content else ""
 
     def generate_stream(self, system_prompt: str, user_message: str) -> Generator[str, None, None]:
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message},
+        messages: list[ChatCompletionSystemMessageParam | ChatCompletionUserMessageParam] = [
+            ChatCompletionSystemMessageParam(role="system", content=system_prompt),
+            ChatCompletionUserMessageParam(role="user", content=user_message),
         ]
         try:
             stream = self.client.chat.completions.create(
@@ -50,7 +52,10 @@ class LLMClient:
             )
         except Exception as exc:
             raise LLMError(f"LLM stream failed: {exc}") from exc
-        for chunk in stream:
-            delta = chunk.choices[0].delta
-            if delta.content:
-                yield delta.content
+        try:
+            for chunk in stream:
+                delta = chunk.choices[0].delta
+                if delta.content:
+                    yield delta.content
+        except Exception as exc:
+            raise LLMError(f"LLM stream interrupted: {exc}") from exc

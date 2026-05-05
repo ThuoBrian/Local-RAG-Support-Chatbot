@@ -14,6 +14,7 @@ test-all:
 
 lint:
 	ruff check helpdesk_rag/
+	ruff format --check helpdesk_rag/
 
 typecheck:
 	mypy helpdesk_rag/

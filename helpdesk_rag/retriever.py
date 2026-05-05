@@ -2,27 +2,84 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 from dataclasses import dataclass
+from typing import Any
 
-from rank_bm25 import BM25Okapi
+from rank_bm25 import BM25Okapi  # type: ignore[import-untyped]
 
 from helpdesk_rag.config import RetrievalConfig
 from helpdesk_rag.embeddings import EmbeddingClient
-from helpdesk_rag.vector_store import VectorStore
+from helpdesk_rag.vector_store import QueryResult, VectorStore
 
 logger = logging.getLogger(__name__)
 
 VECTOR_WEIGHT = 0.6
 BM25_WEIGHT = 0.4
 
-_STOP_WORDS = frozenset({
-    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
-    "have", "has", "had", "do", "does", "did", "will", "would", "could",
-    "should", "may", "might", "shall", "can", "it", "its", "this", "that",
-    "these", "those", "i", "you", "he", "she", "we", "they", "me", "him",
-    "her", "us", "them", "my", "your", "his", "our", "their", "in", "on",
-    "at", "to", "for", "of", "with", "by", "from", "and", "or", "but", "not",
-})
+_STOP_WORDS = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "shall",
+        "can",
+        "it",
+        "its",
+        "this",
+        "that",
+        "these",
+        "those",
+        "i",
+        "you",
+        "he",
+        "she",
+        "we",
+        "they",
+        "me",
+        "him",
+        "her",
+        "us",
+        "them",
+        "my",
+        "your",
+        "his",
+        "our",
+        "their",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "with",
+        "by",
+        "from",
+        "and",
+        "or",
+        "but",
+        "not",
+    }
+)
 
 
 def _tokenize(text: str) -> list[str]:
@@ -45,9 +102,10 @@ class Retriever:
         self.embedding_client = embedding_client
         self.config = config
         self._bm25: BM25Okapi | None = None
-        self._bm25_chunks: list[dict] | None = None
+        self._bm25_chunks: list[dict[str, Any]] | None = None
         self._bm25_corpus: list[list[str]] | None = None
         self._bm25_count: int = 0
+        self._bm25_lock = threading.Lock()
 
     def retrieve(self, query: str) -> list[RetrievedChunk]:
         query_embedding = self.embedding_client.embed_query(query)
@@ -68,7 +126,8 @@ class Retriever:
         # Hybrid: vector → BM25 re-rank
         if vector_results:
             filtered = [(r, s) for r, s in vector_results if s >= self.config.min_score]
-            return self._hybrid_rerank(query, filtered)
+            if filtered:
+                return self._hybrid_rerank(query, filtered)
 
         return [
             RetrievedChunk(content=r["content"], source=r["source"], section=r.get("section", ""), score=s)
@@ -83,29 +142,41 @@ class Retriever:
         scores = bm25.get_scores(tokenized_query)
         ranked = sorted(enumerate(scores), key=lambda x: x[1], reverse=True)
         return [
-            RetrievedChunk(content=chunks[i]["content"], source=chunks[i]["source"], section=chunks[i].get("section", ""), score=float(s))
+            RetrievedChunk(
+                content=chunks[i]["content"],
+                source=chunks[i]["source"],
+                section=chunks[i].get("section", ""),
+                score=float(s),
+            )
             for i, s in ranked[: self.config.top_k]
         ]
 
-    def _get_bm25_index(self) -> tuple[BM25Okapi, list[dict]]:
+    def _get_bm25_index(self) -> tuple[BM25Okapi, list[dict[str, Any]]]:
         current_count = self.vector_store.count()
-        if self._bm25 is not None and self._bm25_count == current_count:
-            return self._bm25, self._bm25_chunks  # type: ignore[return-value]
-        self._bm25_chunks = self.vector_store.get_all_chunks()
-        self._bm25_corpus = [_tokenize(c["content"]) for c in self._bm25_chunks]
-        self._bm25 = BM25Okapi(self._bm25_corpus)
-        self._bm25_count = current_count
-        logger.debug("Built BM25 index with %d chunks", current_count)
-        return self._bm25, self._bm25_chunks
+        with self._bm25_lock:
+            if self._bm25 is not None and self._bm25_count == current_count:
+                assert self._bm25_chunks is not None
+                return self._bm25, self._bm25_chunks
+            raw_chunks = self.vector_store.get_all_chunks()
+            self._bm25_chunks = [
+                {"content": c["content"], "source": c["source"], "section": c.get("section", "")} for c in raw_chunks
+            ]
+            self._bm25_corpus = [_tokenize(c["content"]) for c in raw_chunks]
+            self._bm25 = BM25Okapi(self._bm25_corpus)
+            self._bm25_count = current_count
+            logger.debug("Built BM25 index with %d chunks", current_count)
+            return self._bm25, self._bm25_chunks
 
-    def _hybrid_rerank(self, query: str, candidates: list[tuple[dict, float]]) -> list[RetrievedChunk]:
+    def _hybrid_rerank(self, query: str, candidates: list[tuple[QueryResult, float]]) -> list[RetrievedChunk]:
+        if not candidates:
+            return []
         tokenized_corpus = [_tokenize(c[0]["content"]) for c in candidates]
         bm25 = BM25Okapi(tokenized_corpus)
         tokenized_query = _tokenize(query)
         bm25_scores = bm25.get_scores(tokenized_query)
 
-        combined: list[tuple[dict, float]] = []
         max_bm25 = max(bm25_scores) if len(bm25_scores) > 0 and max(bm25_scores) > 0 else 1.0
+        combined: list[tuple[QueryResult, float]] = []
         for i, (chunk, vec_score) in enumerate(candidates):
             bm25_norm = bm25_scores[i] / max_bm25
             combined_score = VECTOR_WEIGHT * vec_score + BM25_WEIGHT * bm25_norm

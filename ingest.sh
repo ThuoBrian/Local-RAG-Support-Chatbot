@@ -4,6 +4,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-source .venv/bin/activate
+if [ -d .venv ]; then source .venv/bin/activate; fi
 
 python -m helpdesk_rag.ingest

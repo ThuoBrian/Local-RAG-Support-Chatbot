@@ -4,9 +4,9 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TypedDict
+from typing import TypedDict, cast
 
-import fitz  # pymupdf
+import fitz  # type: ignore[import-untyped]
 from docx import Document as DocxDocument
 
 from helpdesk_rag.exceptions import DocumentLoadError
@@ -24,7 +24,7 @@ class DocumentMetadata(TypedDict, total=False):
 @dataclass
 class Document:
     content: str
-    metadata: DocumentMetadata = field(default_factory=dict)
+    metadata: DocumentMetadata = field(default_factory=cast(type, dict))
 
 
 def _extract_markdown_headings(text: str) -> list[str]:
@@ -47,13 +47,13 @@ def _load_pdf(path: Path) -> Document:
     logger.debug("Loaded PDF %s (%d pages)", path.name, len(pages))
     return Document(
         content="\n\n".join(pages),
-        metadata={"source": path.name, "format": "pdf", "page_count": len(pages)},
+        metadata=DocumentMetadata(source=path.name, format="pdf", page_count=len(pages)),
     )
 
 
 def _load_docx(path: Path) -> Document:
     try:
-        doc = DocxDocument(path)
+        doc = DocxDocument(str(path))
     except Exception as exc:
         raise DocumentLoadError(f"Failed to open DOCX {path.name}: {exc}") from exc
     paragraphs: list[str] = []
@@ -75,7 +75,7 @@ def _load_docx(path: Path) -> Document:
     logger.debug("Loaded DOCX %s (%d paragraphs, %d headings)", path.name, len(paragraphs), len(headings))
     return Document(
         content="\n\n".join(paragraphs),
-        metadata={"source": path.name, "format": "docx", "headings": headings},
+        metadata=DocumentMetadata(source=path.name, format="docx", headings=headings),
     )
 
 

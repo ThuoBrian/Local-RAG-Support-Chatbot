@@ -41,11 +41,15 @@ class VectorStore:
             )
         except Exception as exc:
             raise VectorStoreError(f"Failed to initialize vector store: {exc}") from exc
-        logger.info("Vector store initialized: %d chunks in %s sources", self.collection.count(), len(self.get_sources()))
+        logger.info(
+            "Vector store initialized: %d chunks in %s sources", self.collection.count(), len(self.get_sources())
+        )
 
     def add_chunks(self, chunks: list[Chunk], embeddings: list[list[float]]) -> None:
         if len(chunks) != len(embeddings):
-            raise VectorStoreError(f"chunks ({len(chunks)}) and embeddings ({len(embeddings)}) must have the same length")
+            raise VectorStoreError(
+                f"chunks ({len(chunks)}) and embeddings ({len(embeddings)}) must have the same length"
+            )
         if not chunks:
             return
 
@@ -54,15 +58,21 @@ class VectorStore:
         metadatas = []
         for c in chunks:
             headings = c.metadata.get("headings", [])
-            metadatas.append({
-                "source": c.metadata.get("source", ""),
-                "format": c.metadata.get("format", ""),
-                "chunk_index": c.metadata.get("chunk_index", 0),
-                "section": headings[-1] if headings else "",
-            })
+            metadatas.append(
+                {
+                    "source": c.metadata.get("source", ""),
+                    "format": c.metadata.get("format", ""),
+                    "chunk_index": c.metadata.get("chunk_index", 0),
+                    "section": headings[-1] if headings else "",
+                }
+            )
 
-        existing = set(self.collection.get()["ids"])
-        new_items = [(id_, doc, emb, meta) for id_, doc, emb, meta in zip(ids, documents, embeddings, metadatas) if id_ not in existing]
+        existing = {str(id_) for id_ in self.collection.get()["ids"]}
+        new_items = [
+            (id_, doc, emb, meta)
+            for id_, doc, emb, meta in zip(ids, documents, embeddings, metadatas)
+            if id_ not in existing
+        ]
         skipped = len(chunks) - len(new_items)
         if skipped:
             logger.warning("Skipped %d existing chunk(s) during ingestion", skipped)
@@ -79,7 +89,7 @@ class VectorStore:
 
     def query(self, query_embedding: list[float], n: int = 8) -> list[tuple[QueryResult, float]]:
         try:
-            results = self.collection.query(query_embeddings=[query_embedding], n_results=n)
+            results = self.collection.query(query_embeddings=[query_embedding], n_results=n)  # type: ignore[arg-type]
         except Exception as exc:
             raise VectorStoreError(f"Vector store query failed: {exc}") from exc
         items: list[tuple[QueryResult, float]] = []
@@ -89,22 +99,29 @@ class VectorStore:
             metadata = results["metadatas"][0][i] if results["metadatas"] else {}
             distance = results["distances"][0][i] if results["distances"] else 0.0
             score = max(0.0, 1.0 - (distance / 2.0))
-            items.append(({
-                "id": results["ids"][0][i],
-                "content": results["documents"][0][i] if results["documents"] else "",
-                "source": metadata.get("source", ""),
-                "format": metadata.get("format", ""),
-                "section": metadata.get("section", ""),
-            }, score))
+            items.append(
+                (
+                    {
+                        "id": results["ids"][0][i],
+                        "content": results["documents"][0][i] if results["documents"] else "",
+                        "source": str(metadata.get("source", "")),
+                        "format": str(metadata.get("format", "")),
+                        "section": str(metadata.get("section", "")),
+                    },
+                    score,
+                )
+            )
         return items
 
     def get_sources(self) -> list[str]:
         result = self.collection.get(include=["metadatas"])
         metadatas = result["metadatas"]
+        if not metadatas:
+            return []
         sources: set[str] = set()
         for m in metadatas:
             if m and m.get("source"):
-                sources.add(m["source"])
+                sources.add(str(m["source"]))
         return sorted(sources)
 
     def count(self) -> int:
@@ -120,10 +137,12 @@ class VectorStore:
         chunks: list[ChunkResult] = []
         for i in range(len(result["ids"])):
             metadata = result["metadatas"][i] if result["metadatas"] else {}
-            chunks.append({
-                "id": result["ids"][i],
-                "content": result["documents"][i] if result["documents"] else "",
-                "source": metadata.get("source", ""),
-                "section": metadata.get("section", ""),
-            })
+            chunks.append(
+                {
+                    "id": result["ids"][i],
+                    "content": result["documents"][i] if result["documents"] else "",
+                    "source": str(metadata.get("source", "")),
+                    "section": str(metadata.get("section", "")),
+                }
+            )
         return chunks

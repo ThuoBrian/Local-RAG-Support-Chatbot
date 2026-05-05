@@ -11,11 +11,14 @@ from tqdm import tqdm
 from helpdesk_rag.chunker import RecursiveChunker
 from helpdesk_rag.config import load_config
 from helpdesk_rag.embeddings import EmbeddingClient
+from helpdesk_rag.exceptions import EmbeddingError
 from helpdesk_rag.loader import SUPPORTED_EXTENSIONS, load_document
 from helpdesk_rag.logging_config import setup_logging
 from helpdesk_rag.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
+
+EMBED_BATCH_SIZE = 64
 
 
 def ingest(docs_dir: str = "data/documents") -> int:
@@ -31,10 +34,7 @@ def ingest(docs_dir: str = "data/documents") -> int:
         logger.error("Directory not found: %s", docs_dir)
         return 1
 
-    files = sorted(
-        f for f in docs_path.iterdir()
-        if f.is_file() and f.suffix.lower() in SUPPORTED_EXTENSIONS
-    )
+    files = sorted(f for f in docs_path.iterdir() if f.is_file() and f.suffix.lower() in SUPPORTED_EXTENSIONS)
 
     if not files:
         logger.warning("No supported documents found in %s/", docs_dir)
@@ -55,18 +55,22 @@ def ingest(docs_dir: str = "data/documents") -> int:
         tqdm.write(f"  {file_path.name} -> {len(chunks)} chunks")
 
         texts = [c.content for c in chunks]
-        embed_bar = tqdm(
-            [texts],
-            desc="  Embedding",
-            unit="batch",
-            leave=False,
-        )
-        for batch_texts in embed_bar:
-            embeddings = embedding_client.embed_texts(batch_texts)
-        embed_bar.close()
+        all_embeddings: list[list[float]] = []
+        for i in range(0, len(texts), EMBED_BATCH_SIZE):
+            batch = texts[i : i + EMBED_BATCH_SIZE]
+            try:
+                batch_embeddings = embedding_client.embed_texts(batch)
+            except EmbeddingError:
+                logger.exception("Failed to embed batch from %s, skipping file", file_path.name)
+                all_embeddings = []
+                break
+            all_embeddings.extend(batch_embeddings)
 
-        vector_store.add_chunks(chunks, embeddings)
-        total_chunks += len(chunks)
+        if all_embeddings and len(all_embeddings) == len(chunks):
+            vector_store.add_chunks(chunks, all_embeddings)
+            total_chunks += len(chunks)
+        elif all_embeddings:
+            logger.warning("Embedding count mismatch for %s, skipping", file_path.name)
 
     file_bar.close()
 

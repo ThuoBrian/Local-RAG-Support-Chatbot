@@ -65,7 +65,9 @@
     newChatBtn.addEventListener("click", () => {
         sessionId = generateSessionId();
         sessionStorage.setItem("session_id", sessionId);
-        messagesEl.innerHTML = "";
+        while (messagesEl.firstChild) {
+            messagesEl.removeChild(messagesEl.firstChild);
+        }
         if (emptyState) {
             emptyState.classList.remove("hidden");
             messagesEl.appendChild(emptyState);
@@ -102,7 +104,7 @@
         wrapper.className = "message-wrapper assistant";
         const bubble = document.createElement("div");
         bubble.className = "message-bubble";
-        bubble.innerHTML = marked.parse(content);
+        bubble.innerHTML = DOMPurify.sanitize(marked.parse(content));
         wrapper.appendChild(bubble);
         messagesEl.appendChild(wrapper);
         scrollToBottom();
@@ -129,77 +131,51 @@
         return { wrapper, bubble, typing };
     }
 
-    function renderSources(sources) {
-        if (!sources || sources.length === 0) return null;
-
-        const panel = document.createElement("div");
-        panel.className = "sources-panel";
-
-        const toggle = document.createElement("button");
-        toggle.className = "sources-toggle";
-        toggle.textContent = `Sources (${sources.length})`;
-        toggle.addEventListener("click", () => {
-            list.classList.toggle("visible");
-        });
-        panel.appendChild(toggle);
-
-        const list = document.createElement("div");
-        list.className = "sources-list";
-
-        sources.forEach((s) => {
-            const card = document.createElement("div");
-            card.className = "source-card";
-
-            const header = document.createElement("div");
-            header.className = "source-header";
-
-            const name = document.createElement("span");
-            name.className = "source-name";
-            name.textContent = s.source;
-            header.appendChild(name);
-
-            if (s.section) {
-                const section = document.createElement("span");
-                section.className = "source-section";
-                section.textContent = s.section;
-                header.appendChild(section);
-            }
-
-            const score = document.createElement("span");
-            score.className = "source-score";
-            score.textContent = s.score;
-            header.appendChild(score);
-
-            card.appendChild(header);
-
-            if (s.content_snippet) {
-                const details = document.createElement("details");
-                details.className = "source-details";
-                const summary = document.createElement("summary");
-                summary.textContent = "Show excerpt";
-                details.appendChild(summary);
-
-                const snippet = document.createElement("p");
-                snippet.className = "source-snippet";
-                snippet.textContent = s.content_snippet;
-                details.appendChild(snippet);
-
-                card.appendChild(details);
-            }
-
-            list.appendChild(card);
-        });
-
-        panel.appendChild(list);
-        return panel;
-    }
-
     async function streamResponse(message) {
         isStreaming = true;
         updateSendButton();
 
         const { wrapper, bubble, typing } = createStreamingAssistant();
         let currentSources = null;
+        let fullText = "";
+        let currentEvent = "";
+
+        function processLine(line) {
+            const trimmed = line.replace(/\r$/, "");
+            if (trimmed.startsWith("event: ")) {
+                currentEvent = trimmed.slice(7);
+            } else if (trimmed.startsWith("data: ")) {
+                const data = trimmed.slice(6);
+
+                if (currentEvent === "sources") {
+                    currentSources = JSON.parse(data);
+                } else if (currentEvent === "token") {
+                    const token = JSON.parse(data);
+                    fullText += token;
+
+                    if (typing && typing.parentNode) {
+                        typing.remove();
+                    }
+
+                    bubble.innerHTML = DOMPurify.sanitize(marked.parse(fullText));
+                    scrollToBottom();
+                } else if (currentEvent === "error") {
+                    if (typing && typing.parentNode) {
+                        typing.remove();
+                    }
+                    bubble.className = "message-bubble error-bubble";
+                    bubble.textContent = JSON.parse(data);
+                    scrollToBottom();
+                } else if (currentEvent === "done") {
+                    if (typing && typing.parentNode) {
+                        typing.remove();
+                    }
+                    if (fullText) {
+                        bubble.innerHTML = DOMPurify.sanitize(marked.parse(fullText));
+                    }
+                }
+            }
+        }
 
         try {
             const response = await fetch("/api/chat", {
@@ -215,8 +191,6 @@
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = "";
-            let fullText = "";
-            let currentEvent = "";
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -227,46 +201,14 @@
                 buffer = lines.pop() || "";
 
                 for (const line of lines) {
-                    const trimmed = line.replace(/\r$/, "");
-                    if (trimmed.startsWith("event: ")) {
-                        currentEvent = trimmed.slice(7);
-                    } else if (trimmed.startsWith("data: ")) {
-                        const data = trimmed.slice(6);
-
-                        if (currentEvent === "sources") {
-                            currentSources = JSON.parse(data);
-                        } else if (currentEvent === "token") {
-                            const token = JSON.parse(data);
-                            fullText += token;
-
-                            // Remove typing indicator on first token
-                            if (typing && typing.parentNode) {
-                                typing.remove();
-                            }
-
-                            bubble.innerHTML = marked.parse(fullText);
-                            scrollToBottom();
-                        } else if (currentEvent === "error") {
-                            if (typing && typing.parentNode) {
-                                typing.remove();
-                            }
-                            bubble.className = "message-bubble error-bubble";
-                            bubble.textContent = JSON.parse(data);
-                            scrollToBottom();
-                        } else if (currentEvent === "done") {
-                            // Finalize
-                            if (typing && typing.parentNode) {
-                                typing.remove();
-                            }
-                            if (fullText) {
-                                bubble.innerHTML = marked.parse(fullText);
-                            }
-                        }
-                    }
+                    processLine(line);
                 }
             }
 
-            // Sources panel removed — citations are inline in the response
+            // Process any remaining buffer content
+            if (buffer.startsWith("data: ")) {
+                processLine(buffer);
+            }
         } catch (err) {
             if (typing && typing.parentNode) {
                 typing.remove();
