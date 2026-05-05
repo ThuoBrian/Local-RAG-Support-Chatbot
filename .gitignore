@@ -208,6 +208,7 @@ data/chroma/
 
 # Sensitive documents
 data/documents/IPA_Kenya_Cybersecurity_Compliance_Tutorial.md
+data/documents/IPA_Kenya_Procurement_Request_Guide.md
 
 # Ruff stuff:
 .ruff_cache/
