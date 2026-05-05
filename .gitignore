@@ -206,6 +206,9 @@ tempCodeRunnerFile.py
 # ChromaDB vector store (regenerate via: python -m helpdesk_rag.ingest)
 data/chroma/
 
+# Sensitive documents
+data/documents/IPA_Kenya_Cybersecurity_Compliance_Tutorial.md
+
 # Ruff stuff:
 .ruff_cache/
 
