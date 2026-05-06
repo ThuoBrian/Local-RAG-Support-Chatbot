@@ -189,11 +189,4 @@ class Retriever:
         ]
 
     def format_context(self, chunks: list[RetrievedChunk]) -> str:
-        parts: list[str] = []
-        for c in chunks:
-            header = f"[Source: {c.source}"
-            if c.section:
-                header += f", Section: {c.section}"
-            header += "]"
-            parts.append(f"{header}\n{c.content}")
-        return "\n\n".join(parts)
+        return "\n\n".join(c.content for c in chunks)

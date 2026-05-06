@@ -34,16 +34,43 @@
 
         <main id="messages">
             <div id="empty-state" class="empty-state">
-                <div class="empty-icon">💬</div>
-                <h2>Ask me anything about IT procedures</h2>
-                <p>Get answers from your organization's cybersecurity and IT support documentation.</p>
-                <div class="suggestion-chips">
-                    <button class="suggestion-chip" data-query="How do I enable BitLocker?">Enable BitLocker</button>
-                    <button class="suggestion-chip" data-query="What is Cryptomator and how do I use it?">Use
-                        Cryptomator</button>
-                    <button class="suggestion-chip" data-query="How do I secure my field tablet?">Secure tablet</button>
-                    <button class="suggestion-chip" data-query="What are the compliance checks?">Compliance
-                        checks</button>
+                <div class="empty-state-bg" aria-hidden="true">
+                    <div class="bg-orb bg-orb--1"></div>
+                    <div class="bg-orb bg-orb--2"></div>
+                    <div class="bg-orb bg-orb--3"></div>
+                </div>
+                <div class="empty-icon-wrapper">
+                    <div class="empty-icon-ring"></div>
+                    <span class="empty-icon" aria-hidden="true">&#x1F6E1;&#xFE0F;</span>
+                </div>
+                <h2>Your IT Security<br>Knowledge Assistant</h2>
+                <p class="empty-description">
+                    Get instant, accurate answers from IPA Kenya's verified cybersecurity and IT support documentation.
+                </p>
+                <div class="empty-divider">
+                    <span>Try asking about</span>
+                </div>
+                <div class="suggestion-cards">
+                    <button class="suggestion-card" data-query="How do I enable BitLocker?">
+                        <span class="card-icon">&#x1F510;</span>
+                        <span class="card-title">Enable BitLocker</span>
+                        <span class="card-desc">Encrypt your Windows drives</span>
+                    </button>
+                    <button class="suggestion-card" data-query="What is Cryptomator and how do I use it?">
+                        <span class="card-icon">&#x1F512;</span>
+                        <span class="card-title">Use Cryptomator</span>
+                        <span class="card-desc">Encrypt files before cloud sync</span>
+                    </button>
+                    <button class="suggestion-card" data-query="How do I secure my field tablet?">
+                        <span class="card-icon">&#x1F4F1;</span>
+                        <span class="card-title">Secure Your Tablet</span>
+                        <span class="card-desc">Protect mobile devices in the field</span>
+                    </button>
+                    <button class="suggestion-card" data-query="What are the compliance checks?">
+                        <span class="card-icon">&#x1F4CB;</span>
+                        <span class="card-title">Compliance Checks</span>
+                        <span class="card-desc">Stay audit-ready and compliant</span>
+                    </button>
                 </div>
             </div>
         </main>

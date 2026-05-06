@@ -51,7 +51,7 @@
     });
 
     // Suggestion chips
-    document.querySelectorAll(".suggestion-chip").forEach((chip) => {
+    document.querySelectorAll(".suggestion-card").forEach((chip) => {
         chip.addEventListener("click", () => {
             const query = chip.getAttribute("data-query");
             messageInput.value = query;
