@@ -2,14 +2,19 @@ FROM python:3.13-slim AS builder
 
 WORKDIR /app
 
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml .
 COPY helpdesk_rag/ helpdesk_rag/
+COPY requirements.lock .
+COPY requirements-dev.lock .
 
-RUN pip install --no-cache-dir -e .
+RUN uv pip install --system -r requirements.lock
 
 FROM python:3.13-slim
 
@@ -19,12 +24,14 @@ COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 COPY --from=builder /app /app
 
-COPY config.yaml .
-COPY templates/ templates/
-COPY static/ static/
-COPY start.sh .
-RUN chmod +x start.sh
+# Install uv in runtime image for `uv run`
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+COPY config/ config/
+COPY frontend/ frontend/
+COPY scripts/docker-entrypoint.sh .
+RUN chmod +x docker-entrypoint.sh
 
 EXPOSE 8000
 
-CMD ["./start.sh"]
+CMD ["./docker-entrypoint.sh"]

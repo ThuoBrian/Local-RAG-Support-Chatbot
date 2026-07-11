@@ -83,8 +83,8 @@ async def _cleanup_sessions() -> None:
 
 app = FastAPI(title="Helpdesk RAG", lifespan=lifespan)
 app.add_middleware(CSPMiddleware)
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
+templates = Jinja2Templates(directory="frontend/templates")
 
 
 @app.get("/", response_class=HTMLResponse)

@@ -132,6 +132,7 @@ Background cleanup runs every 10 minutes to remove expired sessions.
 
 - [Ollama](https://ollama.com) installed and running
 - Python 3.11, 3.12, or 3.13
+- [uv](https://docs.astral.sh/uv/) package manager
 
 ### 1. Pull Ollama models
 
@@ -145,9 +146,14 @@ ollama pull glm-5.1:cloud      # chat model
 ```bash
 git clone https://github.com/ThuoBrian/Local-RAG-chatbot-for-Technology-Support.git
 cd Local-RAG-chatbot-for-Technology-Support
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
+uv venv --python 3.13
+uv pip install -e .
+```
+
+Or use the setup script, which also copies example config and `.env` files:
+
+```bash
+./scripts/setup.sh
 ```
 
 ### 3. Add your documents
@@ -158,12 +164,11 @@ Place PDF, DOCX, Markdown, or TXT files in `data/documents/`:
 cp /path/to/your/documents/*.pdf data/documents/
 ```
 
-A sample document (`IPA_Kenya_Cybersecurity_Compliance_Tutorial.md`) is included to get you started.
 
 ### 4. Ingest documents
 
 ```bash
-python -m helpdesk_rag.ingest
+./scripts/ingest.sh
 ```
 
 This chunks your documents, generates embeddings via Ollama, and stores them in ChromaDB. Progress bars show per-file and per-batch status. Re-running ingestion skips duplicates automatically.
@@ -171,22 +176,22 @@ This chunks your documents, generates embeddings via Ollama, and stores them in 
 ### 5. Start the server
 
 ```bash
-uvicorn helpdesk_rag.app:app --host 0.0.0.0 --port 8000
+uv run uvicorn helpdesk_rag.app:app --host 127.0.0.1 --port 8000
 ```
 
 Or use the startup script (auto-ingests if the vector store is empty):
 
 ```bash
-./start.sh
+./scripts/start.sh
 ```
 
 Open **http://localhost:8000** in your browser.
 
 ## Configuration
 
-All settings live in `config.yaml`. You can also override any value with environment variables — env vars take precedence.
+All settings live in `config/config.yaml`. You can also override any value with environment variables — env vars take precedence.
 
-### config.yaml
+### config/config.yaml
 
 ```yaml
 ollama:
@@ -229,7 +234,7 @@ chat:
 | `RETRIEVAL_MIN_SCORE` | `retrieval.min_score` | float | `0.3` |
 | `MAX_CONTEXT_CHARS` | `chat.max_context_chars` | int | `6000` |
 | `MAX_HISTORY_TURNS` | `chat.max_history_turns` | int | `4` |
-| `HOST` | server host (uvicorn) | str | `0.0.0.0` |
+| `HOST` | server host (uvicorn) | str | `127.0.0.1` |
 | `PORT` | server port (uvicorn) | int | `8000` |
 
 ## Adding Documents
@@ -237,7 +242,7 @@ chat:
 Drop files into `data/documents/` and re-run ingestion:
 
 ```bash
-python -m helpdesk_rag.ingest
+./scripts/ingest.sh
 ```
 
 Supported formats: **PDF**, **DOCX**, **Markdown** (`.md`), **plain text** (`.txt`).
@@ -246,63 +251,92 @@ Ingestion skips chunks that already exist in the vector store, so you can run it
 
 ## Docker
 
+Build and run with Docker Compose:
+
 ```bash
-docker build -t helpdesk-rag .
-docker run -p 8000:8000 --env-file .env helpdesk-rag
+docker compose -f docker/docker-compose.yml up --build
 ```
 
-The container runs `start.sh`, which auto-ingests documents if the vector store is empty.
+Or build and run manually:
+
+```bash
+docker build -t helpdesk-rag -f docker/Dockerfile .
+docker run -p 8000:8000 --env-file .env -v $(pwd)/config/config.yaml:/app/config/config.yaml helpdesk-rag
+```
+
+The container runs `scripts/docker-entrypoint.sh`, which auto-ingests documents if the vector store is empty.
 
 ## Project Structure
 
 ```
-helpdesk_rag/
-  app.py             # FastAPI app with SSE streaming and session management
-  config.py          # Pydantic config models with env-var overrides
-  engine.py          # RAG orchestration (retrieval + LLM generation)
-  retriever.py       # Hybrid / vector / BM25 retrieval with weighted re-ranking
-  vector_store.py    # ChromaDB wrapper (add, query, count, get_sources)
-  embeddings.py      # OpenAI-compatible embedding client for Ollama
-  llm_client.py      # OpenAI-compatible LLM client (generate + stream)
-  loader.py          # Multi-format document loader (PDF, DOCX, MD, TXT)
-  chunker.py         # Recursive text chunker with configurable overlap
-  ingest.py          # Document ingestion CLI with progress bars
-  exceptions.py      # Custom exception hierarchy
-  logging_config.py  # Centralized logging setup
-templates/
-  index.html         # Single-page chat UI (Jinja2 template)
-static/
-  style.css          # UI stylesheet
-  app.js             # SSE client, Markdown rendering, session management
-data/
-  documents/         # Drop your documents here
-  chroma/            # Persisted vector store (auto-generated, gitignored)
+helpdesk_rag/              # Python source code
+  app.py                   # FastAPI app with SSE streaming and session management
+  config.py                # Pydantic config models with env-var overrides
+  engine.py                # RAG orchestration (retrieval + LLM generation)
+  retriever.py             # Hybrid / vector / BM25 retrieval with weighted re-ranking
+  vector_store.py          # ChromaDB wrapper (add, query, count, get_sources)
+  embeddings.py            # OpenAI-compatible embedding client for Ollama
+  llm_client.py            # OpenAI-compatible LLM client (generate + stream)
+  loader.py                # Multi-format document loader (PDF, DOCX, MD, TXT)
+  chunker.py               # Recursive text chunker with configurable overlap
+  ingest.py                # Document ingestion CLI with progress bars
+  exceptions.py            # Custom exception hierarchy
+  logging_config.py        # Centralized logging setup
+frontend/                  # UI assets
+  templates/
+    index.html             # Single-page chat UI (Jinja2 template)
+  static/
+    css/style.css          # UI stylesheet
+    js/app.js              # SSE client, Markdown rendering, session management
+config/                    # Configuration files
+  config.yaml              # Active configuration
+  config.example.yaml      # Example configuration for new setups
+  config.docker.yaml       # Docker-specific configuration
+data/                      # Runtime data (contents gitignored)
+  documents/               # Drop your documents here
+  chroma/                  # Persisted vector store (auto-generated)
+docs/                      # Additional documentation
+  CODE_REVIEW.md
+scripts/                   # Automation scripts
+  setup.sh                 # One-command development setup
+  start.sh                 # Start the chat server
+  ingest.sh                # Ingest documents
+  docker-entrypoint.sh     # Docker container entrypoint
+docker/                    # Docker assets
+  Dockerfile
+  docker-compose.yml
+  .dockerignore
+tests/                     # Test suite
+  fixtures/                # Shared test documents
+  test_*.py
 ```
 
 ## Development
 
 ```bash
-pip install -e ".[dev]"   # install with dev dependencies
-make test                  # run unit tests (excludes integration)
-make test-all              # run all tests including integration
-make lint                  # ruff linter check
-make typecheck             # mypy strict type checking
-make run                   # dev server with auto-reload
+uv pip install -e ".[dev]"  # install with dev dependencies
+make test                   # run unit tests (excludes integration)
+make test-all               # run all tests including integration
+make lint                   # ruff linter check
+make typecheck              # mypy strict type checking
+make run                    # dev server with auto-reload
 ```
 
 ### Makefile targets
 
 | Target | Command |
 |---|---|
-| `make install` | `pip install -e .` |
-| `make dev` | `pip install -e ".[dev]"` |
-| `make test` | `pytest -m "not integration"` |
-| `make test-all` | `pytest` |
-| `make lint` | `ruff check helpdesk_rag/` |
-| `make typecheck` | `mypy helpdesk_rag/` |
+| `make setup` | Create venv with uv, install dev deps, copy example config |
+| `make install` | `uv pip install -e .` |
+| `make dev` | `uv pip install -e ".[dev]"` |
+| `make lock` | Regenerate `uv.lock` from `pyproject.toml` |
+| `make test` | `uv run pytest -m "not integration"` |
+| `make test-all` | `uv run pytest` |
+| `make lint` | `uv run ruff check helpdesk_rag/` |
+| `make typecheck` | `uv run mypy helpdesk_rag/` |
 | `make clean` | Remove build artifacts |
-| `make run` | `uvicorn helpdesk_rag.app:app --reload` |
-| `make ingest` | `python -m helpdesk_rag.ingest` |
+| `make run` | `uv run uvicorn helpdesk_rag.app:app --reload --host 127.0.0.1` |
+| `make ingest` | `./scripts/ingest.sh` |
 
 ## API Reference
 

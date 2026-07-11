@@ -1,0 +1,16 @@
+services:
+  helpdesk-rag:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "${PORT:-8000}:8000"
+    volumes:
+      - ../data/documents:/app/data/documents
+      - ../data/chroma:/app/data/chroma
+      - ../config/config.yaml:/app/config/config.yaml
+    env_file:
+      - ../.env
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000

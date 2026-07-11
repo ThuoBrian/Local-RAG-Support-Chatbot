@@ -1,13 +1,20 @@
-.PHONY: install dev test lint typecheck clean run ingest
+.PHONY: install dev test test-all lint typecheck clean run ingest setup lock
 
 install:
-	pip install -e .
+	uv pip install -e .
 
 dev:
-	pip install -e ".[dev]"
+	uv pip install -r requirements-dev.lock
+
+setup:
+	./scripts/setup.sh
+
+lock:
+	uv pip compile pyproject.toml -o requirements.lock
+	uv pip compile pyproject.toml --extra dev -o requirements-dev.lock
 
 test:
-	pytest -m "not integration"
+	ruff check helpdesk_rag/ && ruff format --check helpdesk_rag/ && pytest -m "not integration"
 
 test-all:
 	pytest
@@ -27,7 +34,7 @@ clean:
 	rm -rf htmlcov/ .coverage
 
 run:
-	uvicorn helpdesk_rag.app:app --reload --host 0.0.0.0 --port 8000
+	uv run uvicorn helpdesk_rag.app:app --reload --host 127.0.0.1 --port 8000
 
 ingest:
-	python -m helpdesk_rag.ingest
+	./scripts/ingest.sh

@@ -203,12 +203,23 @@ cython_debug/
 # Temporary file for partial code execution
 tempCodeRunnerFile.py
 
-# ChromaDB vector store (regenerate via: python -m helpdesk_rag.ingest)
-data/chroma/
+# macOS
+.DS_Store
+**/.DS_Store
 
-# Sensitive documents
-data/documents/IPA_Kenya_Cybersecurity_Compliance_Tutorial.md
-data/documents/IPA_Kenya_Procurement_Request_Guide.md
+# ChromaDB vector store (regenerate via: python -m helpdesk_rag.ingest)
+data/chroma/*
+!data/chroma/.gitkeep
+
+# Documents placed by users (keep .gitkeep so the folder exists)
+data/documents/*
+!data/documents/.gitkeep
+
+# Local-only config overrides
+config/config.local.yaml
+
+# Helpdesk RAG runtime artifacts
+helpdesk_rag.egg-info/
 
 # Ruff stuff:
 .ruff_cache/

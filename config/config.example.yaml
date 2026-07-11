@@ -1,0 +1,23 @@
+ollama:
+  base_url: "http://localhost:11434/v1"
+  embedding_model: "nomic-embed-text"
+  llm_model: "glm-5.1:cloud"
+  temperature: 0.3
+  max_tokens: 768
+
+chunking:
+  chunk_size: 1000
+  chunk_overlap: 200
+
+vector_store:
+  persist_dir: "data/chroma"
+  collection_name: "helpdesk_docs"
+
+retrieval:
+  top_k: 4
+  method: "hybrid"
+  min_score: 0.3
+
+chat:
+  max_history_turns: 4
+  max_context_chars: 6000

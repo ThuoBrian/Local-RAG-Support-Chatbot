@@ -95,8 +95,7 @@ class RAGEngine:
     def answer(self, question: str, history: list[dict[str, str]] | None = None) -> dict[str, str | list[SourceInfo]]:
         sources, user_prompt = self._prepare(question, history)
         if not sources:
-            return {"answer": "Seems like I don't have information about this in my model"
-            ".", "sources": []}
+            return {"answer": "Seems like I don't have information about this in my model.", "sources": []}
         answer = self.llm.generate(SYSTEM_PROMPT, user_prompt)
         return {"answer": answer, "sources": sources}
 
@@ -105,8 +104,7 @@ class RAGEngine:
     ) -> tuple[Generator[str, None, None], list[SourceInfo]]:
         sources, user_prompt = self._prepare(question, history)
         if not sources:
-            return (t for t in ["Seems like I don't have information about this in my model."
-            ]), []
+            return (t for t in ["Seems like I don't have information about this in my model."]), []
         stream = self.llm.generate_stream(SYSTEM_PROMPT, user_prompt)
         return stream, sources
 
