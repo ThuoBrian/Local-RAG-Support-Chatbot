@@ -134,18 +134,30 @@ Background cleanup runs every 10 minutes to remove expired sessions.
 - Python 3.11, 3.12, or 3.13
 - [uv](https://docs.astral.sh/uv/) package manager
 
-### 1. Pull Ollama models
+### The easy way: interactive menu
+
+For non-technical users, run the interactive launcher and follow the numbered menu:
+
+```bash
+git clone https://github.com/ThuoBrian/Local-RAG-chatbot-for-Technology-Support.git
+cd Local-RAG-chatbot-for-Technology-Support
+./scripts/helpdesk.sh
+```
+
+The menu will guide you through setup, Ollama checks, adding documents, ingestion, and starting the chat server.
+
+### The command-line way
+
+#### 1. Pull Ollama models
 
 ```bash
 ollama pull nomic-embed-text   # embedding model
 ollama pull glm-5.1:cloud      # chat model
 ```
 
-### 2. Set up the project
+#### 2. Set up the project
 
 ```bash
-git clone https://github.com/ThuoBrian/Local-RAG-chatbot-for-Technology-Support.git
-cd Local-RAG-chatbot-for-Technology-Support
 uv venv --python 3.13
 uv pip install -e .
 ```
@@ -156,7 +168,7 @@ Or use the setup script, which also copies example config and `.env` files:
 ./scripts/setup.sh
 ```
 
-### 3. Add your documents
+#### 3. Add your documents
 
 Place PDF, DOCX, Markdown, or TXT files in `data/documents/`:
 
@@ -164,8 +176,7 @@ Place PDF, DOCX, Markdown, or TXT files in `data/documents/`:
 cp /path/to/your/documents/*.pdf data/documents/
 ```
 
-
-### 4. Ingest documents
+#### 4. Ingest documents
 
 ```bash
 ./scripts/ingest.sh
@@ -173,16 +184,18 @@ cp /path/to/your/documents/*.pdf data/documents/
 
 This chunks your documents, generates embeddings via Ollama, and stores them in ChromaDB. Progress bars show per-file and per-batch status. Re-running ingestion skips duplicates automatically.
 
-### 5. Start the server
+#### 5. Start the server
 
-```bash
-uv run uvicorn helpdesk_rag.app:app --host 127.0.0.1 --port 8000
-```
-
-Or use the startup script (auto-ingests if the vector store is empty):
+Use the startup script (auto-ingests if the vector store is empty):
 
 ```bash
 ./scripts/start.sh
+```
+
+Or run manually:
+
+```bash
+.venv/bin/uvicorn helpdesk_rag.app:app --host 127.0.0.1 --port 8000
 ```
 
 Open **http://localhost:8000** in your browser.
@@ -298,6 +311,7 @@ data/                      # Runtime data (contents gitignored)
 docs/                      # Additional documentation
   CODE_REVIEW.md
 scripts/                   # Automation scripts
+  helpdesk.sh              # Interactive menu for non-IT users
   setup.sh                 # One-command development setup
   start.sh                 # Start the chat server
   ingest.sh                # Ingest documents
@@ -314,12 +328,12 @@ tests/                     # Test suite
 ## Development
 
 ```bash
-uv pip install -e ".[dev]"  # install with dev dependencies
-make test                   # run unit tests (excludes integration)
-make test-all               # run all tests including integration
-make lint                   # ruff linter check
-make typecheck              # mypy strict type checking
-make run                    # dev server with auto-reload
+uv pip install -e ".[dev]"   # install with dev dependencies
+make test                    # run unit tests (excludes integration)
+make test-all                # run all tests including integration
+make lint                    # ruff linter check
+make typecheck               # mypy strict type checking
+make run                     # dev server with auto-reload
 ```
 
 ### Makefile targets
@@ -329,13 +343,13 @@ make run                    # dev server with auto-reload
 | `make setup` | Create venv with uv, install dev deps, copy example config |
 | `make install` | `uv pip install -e .` |
 | `make dev` | `uv pip install -e ".[dev]"` |
-| `make lock` | Regenerate `uv.lock` from `pyproject.toml` |
-| `make test` | `uv run pytest -m "not integration"` |
-| `make test-all` | `uv run pytest` |
-| `make lint` | `uv run ruff check helpdesk_rag/` |
-| `make typecheck` | `uv run mypy helpdesk_rag/` |
+| `make lock` | Regenerate `requirements.lock` and `requirements-dev.lock` |
+| `make test` | `.venv/bin/pytest -m "not integration"` |
+| `make test-all` | `.venv/bin/pytest` |
+| `make lint` | `.venv/bin/ruff check helpdesk_rag/` |
+| `make typecheck` | `.venv/bin/mypy helpdesk_rag/` |
 | `make clean` | Remove build artifacts |
-| `make run` | `uv run uvicorn helpdesk_rag.app:app --reload --host 127.0.0.1` |
+| `make run` | `.venv/bin/uvicorn helpdesk_rag.app:app --reload --host 127.0.0.1` |
 | `make ingest` | `./scripts/ingest.sh` |
 
 ## API Reference
