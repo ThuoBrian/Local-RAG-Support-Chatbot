@@ -16,7 +16,7 @@ if [ ! -d ".venv" ]; then
 fi
 
 echo "Installing package with dev dependencies..."
-uv pip install -r requirements-dev.lock
+uv pip install -e ".[dev]"
 
 mkdir -p data/documents data/chroma
 

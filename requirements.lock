@@ -130,7 +130,9 @@ numpy==2.1.3
 oauthlib==3.3.1
     # via requests-oauthlib
 onnxruntime==1.23.2
-    # via chromadb
+    # via
+    #   helpdesk-rag (pyproject.toml)
+    #   chromadb
 openai==2.45.0
     # via helpdesk-rag (pyproject.toml)
 opentelemetry-api==1.43.0

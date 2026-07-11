@@ -4,7 +4,7 @@ install:
 	uv pip install -e .
 
 dev:
-	uv pip install -r requirements-dev.lock
+	uv pip install -e ".[dev]"
 
 setup:
 	./scripts/setup.sh
@@ -14,17 +14,19 @@ lock:
 	uv pip compile pyproject.toml --extra dev -o requirements-dev.lock
 
 test:
-	ruff check helpdesk_rag/ && ruff format --check helpdesk_rag/ && pytest -m "not integration"
+	.venv/bin/ruff check helpdesk_rag/
+	.venv/bin/ruff format --check helpdesk_rag/
+	.venv/bin/pytest -m "not integration"
 
 test-all:
-	pytest
+	.venv/bin/pytest
 
 lint:
-	ruff check helpdesk_rag/
-	ruff format --check helpdesk_rag/
+	.venv/bin/ruff check helpdesk_rag/
+	.venv/bin/ruff format --check helpdesk_rag/
 
 typecheck:
-	mypy helpdesk_rag/
+	.venv/bin/mypy helpdesk_rag/
 
 clean:
 	rm -rf build/ dist/ *.egg-info/ helpdesk_rag.egg-info/
@@ -34,7 +36,7 @@ clean:
 	rm -rf htmlcov/ .coverage
 
 run:
-	uv run uvicorn helpdesk_rag.app:app --reload --host 127.0.0.1 --port 8000
+	.venv/bin/uvicorn helpdesk_rag.app:app --reload --host 127.0.0.1 --port 8000
 
 ingest:
 	./scripts/ingest.sh

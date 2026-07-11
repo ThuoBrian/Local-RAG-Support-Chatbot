@@ -22,6 +22,7 @@ dependencies = [
     "rank-bm25>=0.2.2",
     "tqdm>=4.66.0",
     "numpy<2.2",
+    "onnxruntime<1.27",
 ]
 
 [project.optional-dependencies]
